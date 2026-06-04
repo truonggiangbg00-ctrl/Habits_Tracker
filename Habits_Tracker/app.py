@@ -9,8 +9,12 @@ import plotly.express as px
 # Cấu hình giao diện hỗ trợ hiển thị biểu đồ rộng rãi
 st.set_page_config(page_title="Habit Tracker Pro", page_icon="💪", layout="centered")
 
-BASE_DIR = r"C:\Users\Zeng\CamChiu\Habits_Tracker"
-BASE_FILE = os.path.join(BASE_DIR, "Tracker.csv")
+# Cấu hình đường dẫn tương đối để chạy được trên Cloud
+BASE_DIR = "." # Dấu chấm đại diện cho thư mục hiện tại
+BASE_FILE = "Tracker.csv"
+
+def get_file_path(year, month):
+    return f"Tracker_{year}_{month:02d}.csv"
 
 if not os.path.exists(BASE_DIR):
     os.makedirs(BASE_DIR)
@@ -221,4 +225,3 @@ with tab3:
             save_data(df, sel_year, sel_month)
             st.success("Đã loại bỏ mục chọn thành công!")
             st.rerun()
-            
