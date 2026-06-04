@@ -6,22 +6,42 @@ import calendar
 import os
 import plotly.express as px
 
-# Cấu hình giao diện hỗ trợ hiển thị biểu đồ rộng rãi
-st.set_page_config(page_title="Habit Tracker Pro", page_icon="💪", layout="centered")
+# 1. Cấu hình trang - Chế độ "wide" và thu gọn lề
+st.set_page_config(page_title="Habit Tracker", page_icon="💪", layout="wide")
 
-# Cấu hình đường dẫn tương đối để chạy được trên Cloud
+# 2. Can thiệp CSS (Tối ưu riêng cho màn hình điện thoại)
+st.markdown("""
+    <style>
+    /* Giảm lề 2 bên và phía trên để tận dụng tối đa màn hình điện thoại */
+    .block-container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1rem !important;
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
+    }
+    /* Làm to và bo góc các nút bấm để dễ chạm (Touch-friendly) */
+    .stButton > button {
+        min-height: 50px;
+        border-radius: 12px;
+        font-weight: bold;
+        font-size: 16px;
+    }
+    /* Ẩn hoàn toàn menu mặc định của Streamlit và watermark để trông giống App thật */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    </style>
+""", unsafe_allow_html=True)
+
+# 3. Quản lý đường dẫn (Tuyệt đối an toàn trên Cloud)
 BASE_DIR = os.path.dirname(__file__) 
+# LƯU Ý QUAN TRỌNG: Hãy đảm bảo file trên GitHub của bạn tên chính xác là "Tracker.csv" (chữ T viết hoa)
 BASE_FILE = os.path.join(BASE_DIR, "Tracker.csv")
-
-def get_file_path(year, month):
-    return f"Tracker_{year}_{month:02d}.csv"
-
-if not os.path.exists(BASE_DIR):
-    os.makedirs(BASE_DIR)
 
 def get_file_path(year, month):
     return os.path.join(BASE_DIR, f"Tracker_{year}_{month:02d}.csv")
 
+@st.cache_data(ttl=0)
 def load_data(year, month):
     path = get_file_path(year, month)
     if not os.path.exists(path):
@@ -55,34 +75,38 @@ def save_data(df, year, month):
     df.to_csv(path, index=False, header=False)
     df.to_csv(BASE_FILE, index=False, header=False)
 
-# --- SIDEBAR: QUẢN LÝ ---
-st.sidebar.title("📅 Quản Lý Thời Gian")
+# --- KHÔNG DÙNG SIDEBAR NỮA - ĐƯA LÊN MÀN HÌNH CHÍNH CHO MOBILE ---
+st.markdown("### 🎯 Quản Lý Thói Quen")
+
 current_year = datetime.now().year
 current_month = datetime.now().month
 
-sel_year = st.sidebar.selectbox("Chọn Năm:", range(current_year - 1, current_year + 3), index=1)
-sel_month = st.sidebar.selectbox("Chọn Tháng:", range(1, 13), index=current_month - 1)
+# Chia làm 2 cột nhỏ trên cùng 1 hàng để tiết kiệm diện tích
+colA, colB = st.columns(2)
+with colA:
+    sel_month = st.selectbox("Tháng", range(1, 13), index=current_month - 1)
+with colB:
+    sel_year = st.selectbox("Năm", range(current_year - 1, current_year + 3), index=1)
 
 df = load_data(sel_year, sel_month)
 total_days = df.shape[1] - 3
 total_col_idx = df.shape[1] - 1
 last_row_idx = len(df) - 1
 
-# Phân chia các Tabs chức năng
-tab1, tab2, tab3 = st.tabs(["📝 Nhật Ký", "📊 Phân Tích Tuần", "⚙️ Thiết Lập"])
+# Rút gọn tên Tab để hiển thị vừa vặn trên 1 hàng dọc của điện thoại
+tab1, tab2, tab3 = st.tabs(["📝 Ngày", "📊 Tuần", "⚙️ Cài đặt"])
 
-# TAB 1: THEO DÕI HÀNG NGÀY
+# TAB 1: NGÀY
 with tab1:
-    st.subheader(f"Cập nhật ngày trong tháng {sel_month}/{sel_year}")
     today = datetime.now().day
     selected_day = st.selectbox(
-        "Chọn ngày:", 
+        "📅 Chọn ngày chấm điểm:", 
         range(1, total_days + 1), 
         index=(today - 1) if 1 <= today <= total_days else 0
     )
     col_index = selected_day + 1
     day_of_week = df.iloc[3, col_index]
-    st.info(f"Thứ {day_of_week} — Ngày {selected_day:02d}/{sel_month:02d}/{sel_year}")
+    st.info(f"**Thứ {day_of_week} — {selected_day:02d}/{sel_month:02d}/{sel_year}**")
     
     with st.form("habit_form"):
         new_values = {}
@@ -95,7 +119,7 @@ with tab1:
             is_done = st.checkbox(f"{stt}. {habit_name}", value=current_val)
             new_values[i] = 'TRUE' if is_done else 'FALSE'
             
-        submit_btn = st.form_submit_button("Lưu dữ liệu ngày này", use_container_width=True)
+        submit_btn = st.form_submit_button("Lưu ngày này", use_container_width=True)
         if submit_btn:
             for row_idx, val in new_values.items():
                 df.iloc[row_idx, col_index] = val
@@ -109,13 +133,11 @@ with tab1:
                 df.iloc[last_row_idx, c] = (day_data == 'TRUE').sum()
                 
             save_data(df, sel_year, sel_month)
-            st.success("Đã ghi nhận dữ liệu thành công!")
+            st.success("✅ Đã lưu!")
             st.rerun()
 
-# TAB 2: ĐÁNH GIÁ TUẦN (BẢN GIAO DIỆN ĐẸP)
+# TAB 2: TUẦN
 with tab2:
-    st.markdown("### 📈 Báo Cáo Hiệu Suất Thói Quen")
-    
     weeks = {
         "Tuần 1 (01-07)": list(range(1, 8)),
         "Tuần 2 (08-14)": list(range(8, 15)),
@@ -125,10 +147,7 @@ with tab2:
     if total_days > 28:
         weeks[f"Tuần 5 (29-{total_days:02d})"] = list(range(29, total_days + 1))
         
-    # Tính số lượng thói quen hoàn thành trung bình
     completion_data = []
-    total_habits_count = last_row_idx - 4
-    
     for w_name, days in weeks.items():
         completed_counts = []
         for d in days:
@@ -136,21 +155,20 @@ with tab2:
             val = df.iloc[last_row_idx, c_idx]
             completed_counts.append(int(val) if pd.notna(val) else 0)
         avg_completed = np.mean(completed_counts)
-        completion_data.append({"Tuần": w_name, "Thói quen / Ngày": round(avg_completed, 1)})
+        completion_data.append({"Tuần": w_name.split()[0:2], "Hiệu suất": round(avg_completed, 1)}) # Rút gọn tên tuần cho đt
         
     df_chart1 = pd.DataFrame(completion_data)
+    df_chart1["Tuần"] = df_chart1["Tuần"].apply(lambda x: " ".join(x))
     
-    # 1. Biểu đồ đường mịn xu hướng phát triển qua các tuần
-    fig1 = px.line(df_chart1, x="Tuần", y="Thói quen / Ngày", markers=True, text="Thói quen / Ngày",
-                   title="Xu hướng hoàn thành thói quen trung bình mỗi ngày")
-    fig1.update_traces(line_shape="spline", line_color="#00CC96", marker=dict(size=8, color="#636EFA"))
-    fig1.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=300, hovermode="x")
-    st.plotly_chart(fig1, use_container_width=True)
+    st.markdown("**Xu hướng (Mục/Ngày)**")
+    fig1 = px.line(df_chart1, x="Tuần", y="Hiệu suất", markers=True, text="Hiệu suất")
+    fig1.update_traces(line_shape="spline", line_color="#00CC96", textposition="top center")
+    fig1.update_layout(margin=dict(l=0, r=0, t=20, b=0), height=250, hovermode="x")
+    st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False}) # Tắt thanh công cụ thừa trên đt
     
     st.markdown("---")
     
-    # 2. Chi tiết từng thói quen trong tuần cụ thể
-    selected_week = st.selectbox("Chọn tuần để phân tích sâu:", list(weeks.keys()))
+    selected_week = st.selectbox("🎯 Phân tích chi tiết:", list(weeks.keys()))
     target_days = weeks[selected_week]
     max_possible_days = len(target_days)
     
@@ -164,30 +182,23 @@ with tab2:
             c_idx = d + 1
             if str(df.iloc[i, c_idx]).strip().upper() == 'TRUE':
                 done_count += 1
-        # Tính phần trăm tỷ lệ hoàn thành
         pct = int((done_count / max_possible_days) * 100)
-        habit_perf.append({"Thói quen": h_name, "Số ngày đạt": done_count, "Tỷ lệ (%)": pct})
+        habit_perf.append({"Thói quen": str(h_name)[:15] + "..." if len(str(h_name)) > 15 else str(h_name), "Tỷ lệ (%)": pct}) # Cắt ngắn tên quá dài
         
     df_chart2 = pd.DataFrame(habit_perf)
-    
-    # Thẻ điểm tổng quan (Metric Card) của tuần
     avg_week_pct = int(df_chart2["Tỷ lệ (%)"].mean())
-    st.metric(label=f"🔥 Tỷ lệ kỷ luật chung của {selected_week}", value=f"{avg_week_pct}%", 
-              delta="Tốt" if avg_week_pct >= 70 else "Cần cố gắng thêm")
+    st.metric(label="🔥 Tỷ lệ kỷ luật chung", value=f"{avg_week_pct}%")
     
-    # Biểu đồ cột ngang phân tích từng mục thói quen (Rất hợp với màn hình dọc điện thoại)
-    fig2 = px.bar(df_chart2, x="Số ngày đạt", y="Thói quen", orientation='h', text="Số ngày đạt",
-                  title=f"Số ngày hoàn thành trong {selected_week}",
+    fig2 = px.bar(df_chart2, x="Tỷ lệ (%)", y="Thói quen", orientation='h', text="Tỷ lệ (%)",
                   color="Tỷ lệ (%)", color_continuous_scale=px.colors.sequential.Tealgrn)
-    fig2.update_layout(yaxis={'categoryorder':'total ascending'}, margin=dict(l=20, r=20, t=40, b=20), height=350)
-    fig2.update_traces(textposition="inside")
-    st.plotly_chart(fig2, use_container_width=True)
+    fig2.update_layout(yaxis={'categoryorder':'total ascending'}, margin=dict(l=0, r=0, t=10, b=0), height=350, showlegend=False)
+    st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
 
-# TAB 3: THAY ĐỔI THÓI QUEN
+# TAB 3: CÀI ĐẶT
 with tab3:
-    st.subheader("➕ Thêm thói quen mới")
-    new_habit = st.text_input("Nhập tên thói quen cần bổ sung:")
-    if st.button("Thêm vào danh sách theo dõi", use_container_width=True):
+    st.markdown("**➕ Thêm mới**")
+    new_habit = st.text_input("Nhập tên thói quen:", placeholder="Vd: Đọc sách 30p...")
+    if st.button("Thêm vào danh sách", use_container_width=True):
         if new_habit.strip() != "":
             new_stt = str(last_row_idx - 3)
             new_row = [new_stt, new_habit.strip()] + ["FALSE"] * total_days + [0]
@@ -197,11 +208,11 @@ with tab3:
             
             df = pd.DataFrame(df_list)
             save_data(df, sel_year, sel_month)
-            st.success(f"Đã thêm thành công thói quen: '{new_habit}'")
+            st.success(f"Đã thêm: '{new_habit}'")
             st.rerun()
             
     st.markdown("---")
-    st.subheader("❌ Xóa thói quen hiện tại")
+    st.markdown("**❌ Xóa mục**")
     current_habits = []
     habit_row_indices = {}
     for i in range(4, last_row_idx):
@@ -212,8 +223,8 @@ with tab3:
             habit_row_indices[item_label] = i
             
     if current_habits:
-        to_delete = st.selectbox("Chọn thói quen cần xóa:", current_habits)
-        if st.button("Xóa mục này khỏi danh sách", use_container_width=True):
+        to_delete = st.selectbox("Chọn mục cần xóa:", current_habits)
+        if st.button("Xóa mục này", type="primary", use_container_width=True): # Đổi màu nút xóa
             target_idx = habit_row_indices[to_delete]
             df_list = df.values.tolist()
             df_list.pop(target_idx)
@@ -223,5 +234,5 @@ with tab3:
                 
             df = pd.DataFrame(df_list)
             save_data(df, sel_year, sel_month)
-            st.success("Đã loại bỏ mục chọn thành công!")
+            st.success("Đã xóa!")
             st.rerun()
