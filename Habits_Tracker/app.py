@@ -10,8 +10,8 @@ import plotly.express as px
 st.set_page_config(page_title="Habit Tracker Pro", page_icon="💪", layout="centered")
 
 # Cấu hình đường dẫn tương đối để chạy được trên Cloud
-BASE_DIR = "." # Dấu chấm đại diện cho thư mục hiện tại
-BASE_FILE = "Tracker.csv"
+BASE_DIR = os.path.dirname(__file__) 
+BASE_FILE = os.path.join(BASE_DIR, "Tracker.csv")
 
 def get_file_path(year, month):
     return f"Tracker_{year}_{month:02d}.csv"
